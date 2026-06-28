@@ -2,31 +2,24 @@
 
 > Plugin per [Cheshire Cat AI](https://cheshirecat.ai/) che collega ogni nodo al cluster **HyperSpace-AGI**.
 
-## Funzionalità
-
-| Feature | Dettaglio |
-|---|---|
-| **Tracing SSE** | Ogni messaggio in ingresso viene marcato con `HS-TRACE-<timestamp>` e `node_id` |
-| **System prompt injection** | Il prefix del prompt include il `node_id` e l'URL dell'orchestratore |
-| **Tool forwarding** | Le tool_call possono essere inoltrate all'orchestratore (opzionale) |
-| **Tool `hs_ping_orchestrator`** | Testa la connettività con l'orchestratore da chat |
-| **Tool `hs_list_nodes`** | Lista i nodi attivi secondo l'orchestratore da chat |
-| **Admin panel settings** | Tutto configurabile da UI senza toccare codice |
-
 ## Installazione
 
-### Via Admin Panel (raccomandato)
+### Via git clone nella cartella plugins (raccomandato)
 
-1. Apri `http://localhost:1865/admin` → **Plugins**
-2. Clicca **Upload Plugin** e carica lo zip del repo
-3. Abilita il plugin
-4. Vai in **Plugin Settings → HyperSpace Bridge** e configura:
-   - `orchestrator_url` (es. `http://hyperspace-orchestrator:8000`)
-   - `node_id` (es. `node-01`)
-   - `trace_enabled` (default `true`)
-   - `forward_tools` (default `false`)
+```bash
+# Entra nella cartella plugins di Cheshire Cat
+cd /path/to/cheshire-cat/cat/plugins
 
-### Via Docker Volume
+# Clona direttamente con il nome corretto del package
+git clone https://github.com/opodark/hyperspace-bridge-plugin.git hyperspace_bridge
+
+# Cheshire Cat rileva e carica il plugin automaticamente (no restart)
+```
+
+> **Importante:** clona con il nome `hyperspace_bridge` (underscore), non il nome default del repo.
+> Il nome della cartella deve corrispondere al package Python.
+
+### Via Docker volume
 
 ```yaml
 # docker-compose.yml (frammento)
@@ -34,46 +27,50 @@ volumes:
   - ./hyperspace_bridge:/app/cat/plugins/hyperspace_bridge
 ```
 
-### Via git clone nella cartella plugins
+## Configurazione
 
-```bash
-cd /path/to/cheshire-cat/cat/plugins
-git clone https://github.com/opodark/hyperspace-bridge-plugin.git
-# Cheshire Cat rileva e carica il plugin automaticamente
-```
+Dopo l'installazione, vai in `http://localhost:1865/admin` → **Plugins** → **HyperSpace Bridge Settings**:
+
+| Setting | Default | Descrizione |
+|---|---|---|
+| `orchestrator_url` | `http://hyperspace-orchestrator:8000` | URL base dell'orchestratore |
+| `node_id` | `node-01` | ID univoco del nodo nel cluster |
+| `trace_enabled` | `true` | Abilita logging HS-TRACE |
+| `forward_tools` | `false` | Inoltra tool_call all'orchestratore |
+
+## Funzionalità
+
+| Feature | Hook/Tool | Dettaglio |
+|---|---|---|
+| **Tracing SSE** | `before_cat_reads_message` | Marca ogni messaggio con `HS-TRACE-<ts>` e `node_id` |
+| **System prompt injection** | `agent_prompt_prefix` | Inietta `[HYPERSPACE NODE: id]` nel system prompt |
+| **Metadata risposta** | `before_cat_sends_message` | Aggiunge `hyperspace_node` nel campo `why` |
+| **Tool forwarding** | `after_agent_action` | POST tool_call all'orchestratore (se abilitato) |
+| **Ping orchestratore** | tool `hs_ping_orchestrator` | Testa connettività da chat |
+| **Lista nodi** | tool `hs_list_nodes` | Elenca nodi attivi da chat |
 
 ## Struttura
 
 ```
-hyperspace_bridge/
-├── plugin.json        # Metadati plugin (nome, versione, autore)
-├── __init__.py        # Entry point
-├── settings.py        # Schema Pydantic dei settings (admin panel)
-├── hooks.py           # Hook: before_cat_reads_message, before_cat_sends_message,
-│                      #        after_agent_action, agent_prompt_prefix
-├── tools.py           # Tool: hs_ping_orchestrator, hs_list_nodes
-├── client.py          # HTTP client verso l'orchestratore (httpx / requests)
-└── requirements.txt   # Dipendenze (httpx)
+hyperspace_bridge/   (= root del repo)
+├── plugin.json
+├── __init__.py
+├── settings.py
+├── hooks.py
+├── tools.py
+├── client.py
+└── requirements.txt
 ```
 
-## Hook disponibili
-
-```
-before_cat_reads_message  → aggiunge trace_id e node_id al messaggio
-before_cat_sends_message  → aggiunge metadata HyperSpace alla risposta
-after_agent_action        → forwarding opzionale tool_call all'orchestratore
-agent_prompt_prefix       → inietta contesto nodo nel system prompt
-```
-
-## Architettura nel cluster
+## Architettura
 
 ```
 HyperSpace Node N
 ├── Cheshire Cat :1865
-│   └── hyperspace_bridge plugin
-│       ├── hooks.py  →  tracing + prompt injection
-│       ├── tools.py  →  hs_ping / hs_list_nodes
-│       └── client.py →  POST/GET verso orchestratore
+│   └── hyperspace_bridge (plugin)
+│       ├── hooks   → tracing + prompt injection + tool forwarding
+│       ├── tools   → hs_ping / hs_list_nodes
+│       └── client  → HTTP verso orchestratore
 └── Ollama :11434
     └── SLM locale (Phi-3, Qwen, Mistral...)
 
@@ -83,10 +80,18 @@ HyperSpace Orchestrator :8000
 └── POST /tool_call
 ```
 
+## Aggiornamento
+
+```bash
+cd /path/to/cheshire-cat/cat/plugins/hyperspace_bridge
+git pull
+# Il Cat rileva le modifiche e ricarica il plugin automaticamente
+```
+
 ## Roadmap
 
 - [ ] Autenticazione HMAC verso l'orchestratore
-- [ ] Hook `before_cat_stores_episodic_memory` per sincronizzare la memoria tra nodi
+- [ ] Hook `before_cat_stores_episodic_memory` per sync memoria tra nodi
 - [ ] Tool `hs_delegate_task` per delegare task ad altri nodi
 - [ ] WebSocket keep-alive verso l'orchestratore
 - [ ] Test suite con mock orchestratore
