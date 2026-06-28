@@ -1,8 +1,11 @@
 {
   "name": "HyperSpace Bridge",
-  "version": "0.1.0",
-  "description": "Collega Cheshire Cat ai nodi HyperSpace-AGI: tracing SSE, hook sul prompt, forwarding tool verso l'orchestratore.",
+  "version": "0.2.0",
+  "description": "Collega Cheshire Cat v2 ai nodi HyperSpace-AGI: tracing, prompt injection e tool forwarding verso l'orchestratore.",
   "author_name": "opodark",
   "author_url": "https://github.com/opodark/hyperspace-bridge-plugin",
-  "tags": "hyperspace, bridge, tracing, orchestrator"
+  "plugin_url": "https://github.com/opodark/hyperspace-bridge-plugin",
+  "tags": "hyperspace, bridge, tracing, orchestrator, agents",
+  "min_cat_version": "2.0.0",
+  "max_cat_version": "Unknown"
 }
